@@ -1,5 +1,6 @@
 "use strict";
 const { v4: uuid } = require("uuid");
+const { LOGGER } = require("../utils");
 const UserState = {
     LOBY: "loby",
     INGAME: "ingame",
@@ -21,19 +22,22 @@ class User {
      * @returns { {user:User, error:{message:string,index:Number,name:string}} }
      */
     static validate(data) {
-        if (!data) return { user: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
+        if (!data) {
+            LOGGER("User validate ->", "client", error, 500, 10)
+            return { user: undefined, error: { message: "unprocesable entity", index: 0, name: "data" } }
+        }
         let _temp_model = new this()
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
-            if (!data[key]) {
+            if (!data[key] && (_temp_model[key] == undefined || _temp_model[key] == null)) {
                 let error = {
                     message: "Unprocessable entity",
                     index: index,
                     name: key,
                 }
                 return { user: undefined , error: error}
-            } else {
+            } else if (data[key]){
                 _temp_model[key] = data[key]
             }
         }
@@ -46,8 +50,9 @@ class User {
     static from_json(data) {
         let _data = {}
         try {
-            _data = JSON.parse(data)
+            _data = data instanceof Object ? data :JSON.parse(data)
         } catch (error) {
+            LOGGER("User from_json ->", `${data}`, error, 500, 10)
             return { user: undefined, error: `${error}` }
         }
         if (!data) return { match: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
@@ -55,14 +60,14 @@ class User {
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
-            if (!_data[key]) {
+            if (!_data[key] && (_temp_model[key] == undefined || _temp_model[key] == null)) {
                 let error = {
                     message: "Unprocessable entity",
                     index: index,
                     name: key,
                 }
                 return { user: undefined , error: error}
-            } else {
+            } else if (_data[key]){
                 _temp_model[key] = _data[key]
             }
         }
@@ -95,19 +100,22 @@ class Match {
      * @returns { {match:Match, error:{message:string,index:Number,name:string}} }
      */
     static validate(data) {
-        if (!data) return { match: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
+        if (!data) {
+            LOGGER("Match validate ->", "client", error, 500, 10)
+            return { match: undefined, error: { message: "unprocesable entity", index: 0, name: "data" } }
+        }
         let _temp_model = new this()
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
-            if (!data[key]) {
+            if (!data[key] && (_temp_model[key] == undefined || _temp_model == null)) {
                 let error = {
                     message: "Unprocessable entity",
                     index: index,
                     name: key,
                 }
                 return { match: undefined , error: error}
-            } else {
+            } else if (data[key]){
                 _temp_model[key] = data[key]
             }
         }
@@ -120,8 +128,9 @@ class Match {
     static from_json(data) {
         let _data = {}
         try {
-            _data = JSON.parse(data)
+            _data = data instanceof Object ? data :JSON.parse(data)
         } catch (error) {
+            LOGGER("Match from_json ->", `${data}`, error, 500, 10)
             return { match: undefined, error: `${error}` }
         }
         if (!data) return { match: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
@@ -129,174 +138,88 @@ class Match {
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
-            if (!_data[key]) {
+            if (!_data[key] && (_temp_model[key] == undefined || _temp_model == null)) {
                 let error = {
                     message: "Unprocessable entity",
                     index: index,
                     name: key,
                 }
                 return { match: undefined , error: error}
-            } else {
+            } else if (_data[key]){
                 _temp_model[key] = _data[key]
             }
         }
         return { match: _temp_model, error: undefined }
     }
 }
-class UserList {
-    constructor() {
-        /** @type { {key:string, match:User} > } */
-        this.users = {}
-    }
+class WSData {
     /**
-     * @param {User} users 
+     * @param {string} action
+     * @param {any} data
      */
-    add(users) {
-        this.users[users.uuid] = users
-    }
-    /**
-     * 
-     * @param {string} muid 
-     */
-    remove(uuid) {
-        delete this.users[uuid]
+    constructor(action, data){
+        this.action = action
+        this.data = data
     }
     /**
      * @param {any} data
-     * @returns { {users:UserList, error:{message:string,index:Number,name:string}} }
+     * @returns { {wsdata:WSData, error:{message:string,index:Number,name:string}} }
      */
     static validate(data) {
-        if (!data) return { users: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
+        if (!data) {
+            LOGGER("WSData validate ->", "client", error, 500, 10)
+            return { match: undefined, error: { message: "unprocesable entity", index: 0, name: "data" } }
+        }
         let _temp_model = new this()
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
-            if (!data[key]) {
+            if (!data[key] && (_temp_model[key] == undefined || _temp_model == null)) {
                 let error = {
                     message: "Unprocessable entity",
                     index: index,
                     name: key,
                 }
-                return { users: undefined , error: error}
-            } else {
-                Object.keys(data[key]).forEach(data_key => {
-                    _temp_model[key][data_key] = data[key][data_key]
-                })
+                return { match: undefined , error: error}
+            } else if (data[key]){
+                _temp_model[key] = data[key]
             }
         }
-        return { users: _temp_model, error: undefined }
+        return { match: _temp_model, error: undefined }
     }
     /**
      * @param {any} data
-     * @returns { {users:UserList, error:{message:string,index:Number,name:string}} }
+     * @returns { {wsdata:WSData, error:{message:string,index:Number,name:string}} }
      */
     static from_json(data) {
         let _data = {}
         try {
-            _data = JSON.parse(data)
+            _data = data instanceof Object ? data :JSON.parse(data)
         } catch (error) {
-            return { users: undefined, error: `${error}` }
-        }
-        if (!data) return { users: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
-        let _temp_model = new this()
-        let _temp_model_keys = Object.keys(_temp_model)
-        for (let index = 0; index < _temp_model_keys.length; index++) {
-            let key = _temp_model_keys[index]
-            if (!_data[key]) {
-                let error = {
-                    message: "Unprocessable entity",
-                    index: index,
-                    name: key,
-                }
-                return { users: undefined , error: error}
-            } else {
-                Object.keys(_data[key]).forEach(data_key => {
-                    _temp_model[key][data_key] = _data[key][data_key]
-                })
-            }
-        }
-        return { users: _temp_model, error: undefined }
-    }
-}
-class MatchList {
-    constructor() {
-        /** @type { {key:string, match:Match} > } */
-        this.matches = {}
-    }
-    /**
-     * @param {Match} match 
-     */
-    add(match) {
-        this.matches[match.muid] = match
-    }
-    /**
-     * 
-     * @param {string} muid 
-     */
-    remove(muid) {
-        delete this.matches[muid]
-    }
-    /**
-     * @param {any} data
-     * @returns { {matches:MatchList, error:{message:string,index:Number,name:string}} }
-     */
-    static validate(data) {
-        if (!data) return { matches: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
-        let _temp_model = new this()
-        let _temp_model_keys = Object.keys(_temp_model)
-        for (let index = 0; index < _temp_model_keys.length; index++) {
-            let key = _temp_model_keys[index]
-            if (!data[key]) {
-                let error = {
-                    message: "Unprocessable entity",
-                    index: index,
-                    name: key,
-                }
-                return { matches: undefined , error: error}
-            } else {
-                Object.keys(data[key]).forEach(data_key => {
-                    _temp_model[key][data_key] = data[key][data_key]
-                })
-            }
-        }
-        return { matches: _temp_model, error: undefined }
-    }
-    /**
-     * @param {any} data
-     * @returns { {matches:MatchList, error:{message:string,index:Number,name:string}} }
-     */
-    static from_json(data) {
-        let _data = {}
-        try {
-            _data = JSON.parse(data)
-        } catch (error) {
+            LOGGER("WSData from_json ->", `${data}`, error, 500, 10)
             return { match: undefined, error: `${error}` }
         }
-        if (!data) return { matches: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
+        if (!data) return { match: undefined, error: {message:"unprocesable entity",index:0,name:"data"} }
         let _temp_model = new this()
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
-            if (!_data[key]) {
+            if (!_data[key] && (_temp_model[key] == undefined || _temp_model == null)) {
                 let error = {
                     message: "Unprocessable entity",
                     index: index,
                     name: key,
                 }
-                return { matches: undefined , error: error}
-            } else {
-                Object.keys(_data[key]).forEach(data_key => {
-                    _temp_model[key][data_key] = _data[key][data_key]
-                })
+                return { match: undefined , error: error}
+            } else if (_data[key]){
+                _temp_model[key] = _data[key]
             }
         }
-        return { matches: _temp_model, error: undefined }
+        return { wsdata: _temp_model, error: undefined }
     }
 }
-
 module.exports = {
     Match,
-    MatchList,
     User,
-    UserList,
+    WSData
 };
