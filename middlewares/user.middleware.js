@@ -1,5 +1,5 @@
 "use strict";
-const { User } = require("../models").goblin_models
+const { User } = require("../models")
 
 const express = require("express");
 

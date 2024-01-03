@@ -1,5 +1,7 @@
 "use strict";
-
+const {User,Match,WSData} = require('./goblin.models')
 module.exports = {
-    goblin_models: require('./goblin.models')
+    User,
+    Match,
+    WSData
 }

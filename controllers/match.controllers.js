@@ -1,7 +1,7 @@
 "use strict";
 const { pubClient } = require("../redis");
 const { LOGGER } = require("../utils");
-const { Match, User} = require("../models").goblin_models;
+const { Match, User} = require("../models");
 class Match_controller {
     /**
      * @param {string} _users_key_prefix 

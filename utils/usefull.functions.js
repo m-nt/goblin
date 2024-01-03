@@ -71,7 +71,7 @@ module.exports = {
             }
         }
         console.log(
-            `${timestamp} - "${from} ${to}" ${status} ${formated_string} `
+            `INFO    ${timestamp} - ${from} ${to} ${status} ${formated_string} `
         );
     },
 };

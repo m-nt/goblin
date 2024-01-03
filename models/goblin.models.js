@@ -3,6 +3,8 @@ const { v4: uuid } = require("uuid");
 const { LOGGER } = require("../utils");
 const UserState = {
     LOBY: "loby",
+    READY: "ready",
+    PRELOAD: "preload",
     INGAME: "ingame",
     OFFLINE: "offline",
 };
@@ -11,11 +13,16 @@ class User {
      * @param {string} uuid
      * @param {Number} rank
      * @param {UserState} state
+     * @param {Array<string>} companions
+     * @param {string}
      */
-    constructor(uuid, rank = 0, state = UserState.LOBY) {
+    constructor(uuid, rank = 0, state = UserState.LOBY, companions = [], game_type = "1v1") {
         this.uuid = uuid;
         this.rank = rank;
-        this.state = state
+        this.state = state;
+        this.companions = companions
+        this.offline_counter = 0;
+        this.game_type = game_type
     }
     /**
      * @param {any} data
@@ -75,7 +82,6 @@ class User {
     }
 }
 const MatchState = {
-    LOBY: "loby",
     PRELOAD: "preload",
     INGAME: "ingame",
     ENDING: "ending",
@@ -86,13 +92,13 @@ class Match {
     /**
      * @param {string} match_uid
      * @param {MatchState} state
-     * @param {Array<User>} opponents
+     * @param {Array<uuid>} opponents
      */
     constructor(match_uid = undefined, state = undefined, opponents = []) {
         if (match_uid) this.muid = match_uid;
-        else this.muid = uuid();
+        else this.muid = crypto.randomUUID();
         if (state) this.state = state;
-        else this.state = MatchState.LOBY;
+        else this.state = MatchState.PRELOAD;
         this.opponents = opponents;
     }
     /**
