@@ -3,6 +3,7 @@ const { Match_controller } = require("./match.controllers");
 const { WebSocketServer } = require("ws");
 const { User, Match } = require("../models");
 const { goblin_config } = require("../config");
+const detectPort = require("detect-port");
 class MatchManager {
     /**
      * @param {Match_controller} Mctrl
@@ -11,6 +12,7 @@ class MatchManager {
     constructor(Mctrl, wss) {
         this.Mctrl = Mctrl;
         this.wss = wss;
+        this.open_ports = []
         this.threshold = goblin_config.RANK_TRESHOLD;
         this.intervalIndex = 0;
         this.offline_tick_limit = goblin_config.OFFLINE_TICK_LIMMIT;
@@ -23,6 +25,11 @@ class MatchManager {
         }, 1000 / this.fps);
     }
     async start() {
+        for (let i = 7500; i < 8000; i++) {
+            detectPort(i).then((value) => {
+                if (value == i) this.open_ports.push(i)
+            })
+        }
         console.log("[x] - MatchMaker Starts...");
     }
     async update() {
@@ -61,26 +68,29 @@ class MatchManager {
         // }
 
         // get ready users with 1v1 type
-        let ready_users = (await this.Mctrl.get_all_users())
-            .filter((u) => u.state == "ready" && u.game_type == "1v1")
+        let ready_users = (await this.Mctrl.get_all_users()).filter(
+            (u) => u.state == "ready" && u.game_type == "1v1"
+        );
         if (ready_users.length < 2) return;
         let match = new Match();
-        let _opponents = ready_users.slice(0, 2).map(u=>u.uuid);
+        let _opponents = ready_users.slice(0, 2).map((u) => u.uuid);
         // check for ranks
         if (!this.is_rank_match([ready_users[0].rank], [ready_users[1].rank]))
             return;
 
-        console.log(match);
         ready_users.forEach((opp) => {
             opp.state = "preload";
             this.Mctrl.add_user(opp, true);
         });
         match.opponents = _opponents;
 
+        let port = this.open_ports.pop()
+        match.port = port
         this.Mctrl.add_match(match);
+
         // run the docker game,
         exec(
-            `docker run -d -p 7000:7000 --name ${goblin_config.SERVER_NAME} ${goblin_config.SERVER_NAME}`
+            `docker run -d -p ${port}:7777 --name match-${match.muid} ${goblin_config.SERVER_NAME}`
         );
         // send back the match properties
         let users_in_ws = await Array.from(this.wss.clients).filter((ws_u) =>
@@ -94,7 +104,19 @@ class MatchManager {
         let empty_matches = Array.from(
             await this.Mctrl.get_all_matches()
         ).filter((match) => match.opponents.length <= 0);
-        console.log(empty_matches);
+        empty_matches.forEach((em) => {
+            this.Mctrl.remove_match(em.muid);
+
+        });
+        Array.from(await this.Mctrl.get_all_matches()).forEach((m) => {
+            exec(`docker ps | grep ${m.muid}`, (error, stdout, stderr) => {
+                if (!error && !stderr && stdout || error.code === 1) {
+                    this.Mctrl.remove_match(m.muid);
+                    this.open_ports.push(m.port)
+                    exec(`docker rm -f match-${m.muid}`)
+                }
+            });
+        });
     }
     /**
      * @returns {Array<User>}

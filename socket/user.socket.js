@@ -1,9 +1,9 @@
 "use strict";
+const { pubClient } = require("../redis");
 const { LOGGER } = require("../utils")
 const {WebSocketServer, WebSocket} = require('ws');
 const { User, Match, WSData} = require("../models")
-const { match_controller} = require('../controllers');
-
+const {match_controller} = require('../controllers');
 /**
  * @param {WebSocket} ws
  * @param {WebSocketServer} wss
@@ -23,12 +23,36 @@ module.exports = (ws, wss) => {
         ws.emit(wsdata.action)
     });
     
-    ws.on("error",(err) => {
-        console.log(err);
+    ws.on("error",async (err) => {
         LOGGER("Server", "Client", err, 500, 10)
+        if (ws?.user) {
+            ws.user.state = "offline"
+            match_controller.add_user(ws.user,true)
+            (async () => {
+                (await match_controller.get_all_matches()).forEach(m => {
+                    if (m.opponents.includes(ws.user.uuid)) {
+                        let index = m.opponents.indexOf(ws.user.uuid)
+                        m.opponents.splice(index,1)
+                    }
+                })
+            })()
+            delete ws?.user
+        }
     })
-    ws.on("close",(code, reason) => {
+    ws.on("close",async (code, reason) => {
         LOGGER("Client", ws?.user.uuid, `closed by server for '${reason}'`, code, 10)
+        if (ws?.user) {
+            ws.user.state = "offline"
+            console.log(ws.user);
+            match_controller.add_user(ws.user, true)
+            (await match_controller.get_all_matches()).forEach(m => {
+                if (m.opponents.includes(ws.user.uuid)) {
+                    let index = m.opponents.indexOf(ws.user.uuid)
+                    m.opponents.splice(index, 1)
+                }
+            })
+            delete ws?.user
+        }
     })
     ws.on("ready", async () => {
         let {user, error} = User.validate(ws.user)

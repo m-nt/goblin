@@ -93,13 +93,15 @@ class Match {
      * @param {string} match_uid
      * @param {MatchState} state
      * @param {Array<uuid>} opponents
+     * @param {Number} port
      */
-    constructor(match_uid = undefined, state = undefined, opponents = []) {
+    constructor(match_uid = undefined, state = undefined, opponents = [], port = 0) {
         if (match_uid) this.muid = match_uid;
         else this.muid = crypto.randomUUID();
         if (state) this.state = state;
         else this.state = MatchState.PRELOAD;
         this.opponents = opponents;
+        this.port = port
     }
     /**
      * @param {any} data
@@ -210,6 +212,7 @@ class WSData {
         let _temp_model_keys = Object.keys(_temp_model)
         for (let index = 0; index < _temp_model_keys.length; index++) {
             let key = _temp_model_keys[index]
+            console.log(_data[key]);
             if (!_data[key] && (_temp_model[key] == undefined || _temp_model == null)) {
                 let error = {
                     message: "Unprocessable entity",
