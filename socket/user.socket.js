@@ -23,37 +23,48 @@ module.exports = (ws, wss) => {
         ws.emit(wsdata.action)
     });
     
-    ws.on("error",async (err) => {
+    ws.onerror = async (err) => {
+        const user = ws?.user
         LOGGER("Server", "Client", err, 500, 10)
-        if (ws?.user) {
-            ws.user.state = "offline"
-            match_controller.add_user(ws.user,true)
-            (async () => {
-                (await match_controller.get_all_matches()).forEach(m => {
-                    if (m.opponents.includes(ws.user.uuid)) {
-                        let index = m.opponents.indexOf(ws.user.uuid)
-                        m.opponents.splice(index,1)
-                    }
-                })
-            })()
-            delete ws?.user
-        }
-    })
-    ws.on("close",async (code, reason) => {
-        LOGGER("Client", ws?.user.uuid, `closed by server for '${reason}'`, code, 10)
-        if (ws?.user) {
-            ws.user.state = "offline"
-            console.log(ws.user);
-            match_controller.add_user(ws.user, true)
-            (await match_controller.get_all_matches()).forEach(m => {
-                if (m.opponents.includes(ws.user.uuid)) {
-                    let index = m.opponents.indexOf(ws.user.uuid)
+        if (user) {
+            user.state = "offline"
+            match_controller.add_user(user,true)
+            let all_matches = []
+            try {
+                all_matches = await match_controller.get_all_matches()
+            } catch (error) {
+            LOGGER("Server", "Client", err, 500, 10)
+            }
+            all_matches.forEach(m => {
+                if (m.opponents.includes(user.uuid)) {
+                    let index = m.opponents.indexOf(user.uuid)
                     m.opponents.splice(index, 1)
+                    match_controller.add_match(m,true)
                 }
             })
-            delete ws?.user
         }
-    })
+    }
+    ws.onclose = async (code, reason) => {
+        const user = ws?.user
+        LOGGER("Client", user, `closed by server for '${reason}'`, code, 10)
+        if (user) {
+            user.state = "offline"
+            match_controller.add_user(user, true)
+            let all_matches = []
+            try {
+                all_matches = await match_controller.get_all_matches()
+            } catch (error) {
+                LOGGER("Server", "Client", err, 500, 10)
+            }
+            all_matches.forEach(m => {
+                if (m.opponents.includes(user.uuid)) {
+                    let index = m.opponents.indexOf(user.uuid)
+                    m.opponents.splice(index, 1)
+                    match_controller.add_match(m,true)
+                }
+            })
+        }
+    }
     ws.on("ready", async () => {
         let {user, error} = User.validate(ws.user)
         if (error) {

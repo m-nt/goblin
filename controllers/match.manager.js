@@ -1,9 +1,8 @@
-const { exec } = require("child_process");
+const { exec } = require("node:child_process");
 const { Match_controller } = require("./match.controllers");
 const { WebSocketServer } = require("ws");
 const { User, Match } = require("../models");
 const { goblin_config } = require("../config");
-const detectPort = require("detect-port");
 class MatchManager {
     /**
      * @param {Match_controller} Mctrl
@@ -12,7 +11,6 @@ class MatchManager {
     constructor(Mctrl, wss) {
         this.Mctrl = Mctrl;
         this.wss = wss;
-        this.open_ports = []
         this.threshold = goblin_config.RANK_TRESHOLD;
         this.intervalIndex = 0;
         this.offline_tick_limit = goblin_config.OFFLINE_TICK_LIMMIT;
@@ -24,12 +22,18 @@ class MatchManager {
             this.update();
         }, 1000 / this.fps);
     }
+    /**
+     *
+     * @param {string} command
+     */
+    async async_exec(command) {
+        return new Promise((resolve, reject) => {
+            exec(command, (error, stdout, stderr) => {
+                resolve({ error, stdout, stderr });
+            });
+        });
+    }
     async start() {
-        for (let i = 7500; i < 8000; i++) {
-            detectPort(i).then((value) => {
-                if (value == i) this.open_ports.push(i)
-            })
-        }
         console.log("[x] - MatchMaker Starts...");
     }
     async update() {
@@ -78,20 +82,25 @@ class MatchManager {
         if (!this.is_rank_match([ready_users[0].rank], [ready_users[1].rank]))
             return;
 
+        // run the docker game,
+        let { _error , _stdout, _stderr } = await this.async_exec(
+            `docker run -d -P --name match-${match.muid} ${goblin_config.SERVER_NAME}`
+        );
+        if (_stderr || _error) return;
+        let { error, stdout, stderr } = await this.async_exec(
+            `docker ps -a -f "name=match-${match.muid}" --format json --no-trunc`
+        );
+        if (stderr, error) return;
+        let result = JSON.parse(stdout);
+        let port = result["Ports"].match(/\d\d\d\d+/g)[0]
         ready_users.forEach((opp) => {
             opp.state = "preload";
             this.Mctrl.add_user(opp, true);
         });
         match.opponents = _opponents;
 
-        let port = this.open_ports.pop()
-        match.port = port
+        match.port = port;
         this.Mctrl.add_match(match);
-
-        // run the docker game,
-        exec(
-            `docker run -d -p ${port}:7777 --name match-${match.muid} ${goblin_config.SERVER_NAME}`
-        );
         // send back the match properties
         let users_in_ws = await Array.from(this.wss.clients).filter((ws_u) =>
             _opponents.map((u) => u.uuid).includes(ws_u.user.uuid)
@@ -106,16 +115,25 @@ class MatchManager {
         ).filter((match) => match.opponents.length <= 0);
         empty_matches.forEach((em) => {
             this.Mctrl.remove_match(em.muid);
-
+            exec(`docker rm -f match-${em.muid}`);
         });
-        Array.from(await this.Mctrl.get_all_matches()).forEach((m) => {
-            exec(`docker ps | grep ${m.muid}`, (error, stdout, stderr) => {
-                if (!error && !stderr && stdout || error.code === 1) {
-                    this.Mctrl.remove_match(m.muid);
-                    this.open_ports.push(m.port)
-                    exec(`docker rm -f match-${m.muid}`)
-                }
-            });
+        Array.from(await this.Mctrl.get_all_matches()).forEach(async (m) => {
+            let { error, stdout, stderr } = await this.async_exec(
+                `docker ps -a -f "name=match-${m.muid}" --format json --no-trunc`
+            );
+            if (error || stderr) return;
+            if (!stdout) {
+                exec(`docker rm -f match-${m.muid}`);
+                this.Mctrl.remove_match(m.muid);
+                return
+            };
+            let result = JSON.parse(stdout)
+            let state = result["State"]
+            let port = result["Ports"].match(/\d\d\d\d+/g)
+            port = port ? port[0] : 0
+            if (!["exited", "dead"].includes(state) || port == m.port) return
+            exec(`docker rm -f match-${m.muid}`);
+            this.Mctrl.remove_match(m.muid);
         });
     }
     /**
