@@ -27,6 +27,7 @@
     "redis": "^4.6.5",
     "uuid": "^9.0.1",
     "ws": "^8.15.0",
-    "detect-port": "1.5.1"
+    "detect-port": "1.5.1",
+    "dockerode": "^4.0.2"
   }
 }

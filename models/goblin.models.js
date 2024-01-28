@@ -4,7 +4,6 @@ const { LOGGER } = require("../utils");
 const UserState = {
     LOBY: "loby",
     READY: "ready",
-    PRELOAD: "preload",
     INGAME: "ingame",
     OFFLINE: "offline",
 };
@@ -82,7 +81,6 @@ class User {
     }
 }
 const MatchState = {
-    PRELOAD: "preload",
     INGAME: "ingame",
     ENDING: "ending",
     ENDED: "ended",
@@ -99,7 +97,7 @@ class Match {
         if (match_uid) this.muid = match_uid;
         else this.muid = crypto.randomUUID();
         if (state) this.state = state;
-        else this.state = MatchState.PRELOAD;
+        else this.state = MatchState.INGAME;
         this.opponents = opponents;
         this.port = port
     }

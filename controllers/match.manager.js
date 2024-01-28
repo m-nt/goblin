@@ -84,7 +84,7 @@ class MatchManager {
 
         // run the docker game,
         let { _error , _stdout, _stderr } = await this.async_exec(
-            `docker run -d -P --name match-${match.muid} ${goblin_config.SERVER_NAME}`
+            `docker run -d -p :7777/udp --name match-${match.muid} ${goblin_config.SERVER_NAME}`
         );
         if (_stderr || _error) return;
         let { error, stdout, stderr } = await this.async_exec(
@@ -94,7 +94,7 @@ class MatchManager {
         let result = JSON.parse(stdout);
         let port = result["Ports"].match(/\d\d\d\d+/g)[0]
         ready_users.forEach((opp) => {
-            opp.state = "preload";
+            opp.state = "ingame";
             this.Mctrl.add_user(opp, true);
         });
         match.opponents = _opponents;
@@ -103,7 +103,7 @@ class MatchManager {
         this.Mctrl.add_match(match);
         // send back the match properties
         let users_in_ws = await Array.from(this.wss.clients).filter((ws_u) =>
-            _opponents.map((u) => u.uuid).includes(ws_u.user.uuid)
+            _opponents.includes(ws_u.user.uuid)
         );
         users_in_ws.forEach((ws_user) => {
             ws_user.send(JSON.stringify(match));
