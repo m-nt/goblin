@@ -3,6 +3,8 @@ const { Match_controller } = require("./match.controllers");
 const { WebSocketServer } = require("ws");
 const { User, Match } = require("../models");
 const { goblin_config } = require("../config");
+const Docker = require('dockerode');
+const { LOGGER } = require("../utils");
 class MatchManager {
     /**
      * @param {Match_controller} Mctrl
@@ -15,6 +17,8 @@ class MatchManager {
         this.intervalIndex = 0;
         this.offline_tick_limit = goblin_config.OFFLINE_TICK_LIMMIT;
         this.fps = goblin_config.FRAME_RATE;
+        this.docker = new Docker({socketPath: '/var/run/docker.sock'}); 
+        // this.docker = new Docker(); 
         (async () => {
             await this.start();
         })();
@@ -64,6 +68,58 @@ class MatchManager {
         if (Math.abs(rank_1 - rank_2) <= this.threshold) return true;
         return false;
     }
+    /**
+     * 
+     * @param {string} name
+     * @param {string} image
+     * @param {string} port
+     * @returns { Promise<{error: any, container: Docker.Container, inspect: Docker.ContainerInspectInfo}> }
+     */
+    async create_docker(name,image,port) {
+        return new Promise((resolve, reject) => {
+            let _port = {}
+            _port[port] = {}
+            this.docker.createContainer({
+            AttachStderr: false,
+            AttachStdin: true,
+            AttachStdout: true,
+            Image: image,
+            name: name,
+            ExposedPorts: _port,
+            HostConfig: {
+                PublishAllPorts: true,
+            },
+            }, async (error, container) => {
+                let inspect = undefined
+                if (container) {
+                    container.start()
+                    while (true) {
+                        let _inspect = await container.inspect()
+                        if (_inspect?.NetworkSettings?.Ports[port]) {
+                            inspect = _inspect;
+                            break;
+                        }
+                    }
+                }
+                resolve({error, container, inspect})
+            })})
+    }
+    /**
+     * 
+     * @param {string} name
+     * @returns { Promise<Docker.ContainerInfo | undefined> }
+     */
+    async find_container(name) {
+        return new Promise(async (resolve, reject) => {
+            let cont = (await this.docker.listContainers()).filter(
+                c=>c.Names.includes(`/${name}`)
+            )
+            if (cont.length>0)
+                resolve(cont[0])
+            resolve(undefined)
+        })
+    }
+
     async check_for_1v1_match() {
         // try {
         //     let users_v_users = goblin_config.GAME_TYPE.split("v").map(u=>Number(u))
@@ -83,16 +139,16 @@ class MatchManager {
             return;
 
         // run the docker game,
-        let { _error , _stdout, _stderr } = await this.async_exec(
-            `docker run -d -p :7777/udp --name match-${match.muid} ${goblin_config.SERVER_NAME}`
-        );
-        if (_stderr || _error) return;
-        let { error, stdout, stderr } = await this.async_exec(
-            `docker ps -a -f "name=match-${match.muid}" --format json --no-trunc`
-        );
-        if (stderr, error) return;
-        let result = JSON.parse(stdout);
-        let port = result["Ports"].match(/\d\d\d\d+/g)[0]
+        let { error, container, inspect } = await this.create_docker(
+            `match-${match.muid}`,
+            `${goblin_config.SERVER_NAME}`,
+            `${goblin_config.SERVER_PORT}`
+        )
+        if (error) {
+            LOGGER("server", "client", error, 500, 30)
+            return;
+        }
+        let port = inspect.NetworkSettings.Ports[`${goblin_config.SERVER_PORT}`][0]?.HostPort
         ready_users.forEach((opp) => {
             opp.state = "ingame";
             this.Mctrl.add_user(opp, true);
@@ -102,7 +158,7 @@ class MatchManager {
         match.port = port;
         this.Mctrl.add_match(match);
         // send back the match properties
-        let users_in_ws = await Array.from(this.wss.clients).filter((ws_u) =>
+        let users_in_ws = Array.from(this.wss.clients).filter((ws_u) =>
             _opponents.includes(ws_u.user.uuid)
         );
         users_in_ws.forEach((ws_user) => {
@@ -113,26 +169,26 @@ class MatchManager {
         let empty_matches = Array.from(
             await this.Mctrl.get_all_matches()
         ).filter((match) => match.opponents.length <= 0);
-        empty_matches.forEach((em) => {
+        empty_matches.forEach(async (em) => {
             this.Mctrl.remove_match(em.muid);
-            exec(`docker rm -f match-${em.muid}`);
+            let match_cont = await this.find_container(`${this.Mctrl._matches_key_prefix}${em.muid}`)
+            if (!match_cont) return
+            this.docker.getContainer(match_cont.Id).remove({
+                force:true
+            })
         });
         Array.from(await this.Mctrl.get_all_matches()).forEach(async (m) => {
-            let { error, stdout, stderr } = await this.async_exec(
-                `docker ps -a -f "name=match-${m.muid}" --format json --no-trunc`
-            );
-            if (error || stderr) return;
-            if (!stdout) {
-                exec(`docker rm -f match-${m.muid}`);
+            let result = await this.find_container(`${this.Mctrl._matches_key_prefix}${m.muid}`)
+            if (!result) {
                 this.Mctrl.remove_match(m.muid);
                 return
-            };
-            let result = JSON.parse(stdout)
-            let state = result["State"]
-            let port = result["Ports"].match(/\d\d\d\d+/g)
-            port = port ? port[0] : 0
+            }
+            let state = result.State
+            let port = result.Ports[0].PublicPort
             if (!["exited", "dead"].includes(state) || port == m.port) return
-            exec(`docker rm -f match-${m.muid}`);
+            this.docker.getContainer(result.Id).remove({
+                force:true
+            })
             this.Mctrl.remove_match(m.muid);
         });
     }

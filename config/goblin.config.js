@@ -3,6 +3,7 @@
 module.exports = {
     SERVICE_NAME: 'goblin',
     SERVER_NAME: 'tiktactoe',
+    SERVER_PORT: '7777/udp',
     PORT: 8000,
     ENV: 'dev',
     DATABASE_URL: 'mongodb://localhost:27017/',
