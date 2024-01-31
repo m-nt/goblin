@@ -45,12 +45,12 @@ class MatchManager {
         await this.clean_up_matches();
         // TODO try sending back user to the existing match if the reason isn't exiting
         await this.check_for_1v1_match();
-        console.log(
-            `all---------------mathes: ${(
-                await this.Mctrl.get_all_matches()
-            ).map((u) => u.muid)}`
-        );
-        console.log(`[${this.intervalIndex}] - MatchMaker Tick`);
+        // console.log(
+        //     `all---------------mathes: ${(
+        //         await this.Mctrl.get_all_matches()
+        //     ).map((u) => u.muid)}`
+        // );
+        // console.log(`[${this.intervalIndex}] - MatchMaker Tick`);
         this.intervalIndex++;
     }
     /**
@@ -201,24 +201,24 @@ class MatchManager {
         let users_in_ws = Array.from(this.wss.clients).map(
             (ws_u) => ws_u.user.uuid
         );
-        console.log(
-            `all----------------users: ${Array.from(
-                await this.Mctrl.get_all_users()
-            ).map((u) => `${u.uuid}-${u.state}-${u.offline_counter},`)}`
-        );
-        console.log(
-            `all--------ws------users: ${Array.from(this.wss.clients).map(
-                (ws_u) => `${ws_u.user.uuid}-${ws_u.user.state},`
-            )}`
-        );
-        let users_to_delete = (await this.Mctrl.get_all_users()).filter(
-            (u) => !users_in_ws.includes(u.uuid) && u.state != "offline"
-        );
-        console.log(
-            `all-users-to-be--deleted: ${Array.from(users_to_delete).map(
-                (u) => `${u.uuid}-${u.state},`
-            )}`
-        );
+        // console.log(
+        //     `all----------------users: ${Array.from(
+        //         await this.Mctrl.get_all_users()
+        //     ).map((u) => `${u.uuid}-${u.state}-${u.offline_counter},`)}`
+        // );
+        // console.log(
+        //     `all--------ws------users: ${Array.from(this.wss.clients).map(
+        //         (ws_u) => `${ws_u.user.uuid}-${ws_u.user.state},`
+        //     )}`
+        // );
+        // let users_to_delete = (await this.Mctrl.get_all_users()).filter(
+        //     (u) => !users_in_ws.includes(u.uuid) && u.state != "offline"
+        // );
+        // console.log(
+        //     `all-users-to-be--deleted: ${Array.from(users_to_delete).map(
+        //         (u) => `${u.uuid}-${u.state},`
+        //     )}`
+        // );
         users_to_delete.forEach((utd) => {
             utd.state = "offline";
             this.Mctrl.add_user(utd, true);
