@@ -211,9 +211,9 @@ class MatchManager {
         //         (ws_u) => `${ws_u.user.uuid}-${ws_u.user.state},`
         //     )}`
         // );
-        // let users_to_delete = (await this.Mctrl.get_all_users()).filter(
-        //     (u) => !users_in_ws.includes(u.uuid) && u.state != "offline"
-        // );
+        let users_to_delete = (await this.Mctrl.get_all_users()).filter(
+            (u) => !users_in_ws.includes(u.uuid) && u.state != "offline"
+        );
         // console.log(
         //     `all-users-to-be--deleted: ${Array.from(users_to_delete).map(
         //         (u) => `${u.uuid}-${u.state},`
